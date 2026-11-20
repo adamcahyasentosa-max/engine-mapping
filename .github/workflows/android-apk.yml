@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-android:
-    name: Build Android APK
+    name: Build Android APK (local Gradle)
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -24,28 +24,31 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Install dependencies
         run: npm ci
 
       - name: Validate Expo configuration
         run: npx expo config --type public
 
-      - name: Build APK with EAS
-        run: npx eas-cli build --platform android --profile preview --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --non-interactive
 
-      - name: Download APK
+      - name: Build release APK
+        working-directory: android
         run: |
-          mkdir -p artifacts
-          npx eas-cli build:download --latest --platform android --path artifacts/Engine-Mapping.apk
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Engine-Mapping-APK
-          path: artifacts/Engine-Mapping.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
